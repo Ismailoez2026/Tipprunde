@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="card">
+    <h2>Regeln</h2>
+    <div class="rules-box">{{ rules_text | replace('\n', '<br>') | safe }}</div>
+</section>
+
+{% if current_user %}
+<section class="card">
+    <h2>Weltmeister-Bonustipp</h2>
+
+    {% if bonus_open %}
+        <form method="post" action="{{ url_for('save_bonus') }}" class="bonus-form">
+            <input type="text" name="champion_team" value="{{ bonus_prediction.champion_team if bonus_prediction else '' }}" placeholder="z. B. Deutschland" required>
+            <button type="submit">Bonustipp speichern</button>
+        </form>
+    {% else %}
+        <p>Der Bonustipp ist gesperrt.</p>
+        {% if bonus_prediction %}
+            <p>Dein Tipp: <strong>{{ get_flag(bonus_prediction.champion_team) }} {{ bonus_prediction.champion_team }}</strong></p>
+        {% endif %}
+    {% endif %}
+
+    {% if champion_result %}
+        <p>Hinterlegter Weltmeister: <strong>{{ get_flag(champion_result) }} {{ champion_result }}</strong></p>
+    {% endif %}
+</section>
+{% endif %}
+
+<section class="card">
+    <h2>Spiele</h2>
+
+    {% if not current_user %}
+        <p>Bitte zuerst <a href="{{ url_for('login') }}">anmelden</a>, um Tipps abzugeben.</p>
+    {% endif %}
+
+    {% for row in rows %}
+        {% set match = row.match %}
+        <article class="match-card">
+            <div class="match-top">
+                <div>
+                    <div class="stage-line">
+                        <span class="stage-badge">{{ match.stage }}</span>
+                        {% if match.group_name %}
+                            <span class="group-badge">Gruppe {{ match.group_name }}</span>
+                        {% endif %}
+                    </div>
+
+                    <h3>
+                        {{ get_flag(match.home_team) }} {{ match.home_team }}
+                        <span class="vs">vs</span>
+                        {{ get_flag(match.away_team) }} {{ match.away_team }}
+                    </h3>
+                    <p class="kickoff">Anstoß: {{ match.kickoff.strftime("%d.%m.%Y %H:%M") }}</p>
+                </div>
+                <div class="result-box">
+                    Ergebnis: <strong>{{ result_text(match) }}</strong>
+                </div>
+            </div>
+
+            {% if current_user %}
+                {% set my_pred = user_predictions.get(match.id) %}
+                {% if row.open %}
+                    <form method="post" action="{{ url_for('save_tip', match_id=match.id) }}" class="tip-form">
+                        <input type="number" name="pred_home" min="0" value="{{ my_pred.pred_home if my_pred else '' }}" required>
+                        <span>:</span>
+                        <input type="number" name="pred_away" min="0" value="{{ my_pred.pred_away if my_pred else '' }}" required>
+                        <button type="submit">
+                            {% if my_pred %}Tipp aktualisieren{% else %}Tipp speichern{% endif %}
+                        </button>
+                    </form>
+                {% else %}
+                    <div class="locked">
+                        Tippabgabe geschlossen.
+                        {% if my_pred %}
+                            Dein Tipp: <strong>{{ my_pred.pred_home }}:{{ my_pred.pred_away }}</strong>
+                        {% else %}
+                            Du hast keinen Tipp abgegeben.
+                        {% endif %}
+                    </div>
+                {% endif %}
+            {% endif %}
+
+            <div class="other-tips">
+                <h4>Tipps</h4>
+
+                {% if match.has_started() %}
+                    {% if row.display_predictions %}
+                        <div class="tips-list">
+                            {% for p in row.display_predictions %}
+                                <div class="tip-line">
+                                    <span>{{ p.user.name }}</span>
+                                    <strong>{{ p.pred_home }}:{{ p.pred_away }}</strong>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p>Noch keine Tipps vorhanden.</p>
+                    {% endif %}
+                {% else %}
+                    <p>Die Tipps der anderen Teilnehmer werden erst ab Anstoß sichtbar.</p>
+                    {% if current_user and user_predictions.get(match.id) %}
+                        <p>Dein Tipp: <strong>{{ user_predictions.get(match.id).pred_home }}:{{ user_predictions.get(match.id).pred_away }}</strong></p>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </article>
+    {% endfor %}
+</section>
+
+<section class="card">
+    <h2>Rangliste</h2>
+    <div class="ranking-table-wrap">
+        <table class="ranking-table">
+            <thead>
+                <tr>
+                    <th>Platz</th>
+                    <th>Name</th>
+                    <th>Punkte</th>
+                    <th>Exakt</th>
+                    <th>Diff</th>
+                    <th>Tendenz</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in ranking_rows %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ row.user.name }}</td>
+                        <td><strong>{{ row.total }}</strong></td>
+                        <td>{{ row.exact_count }}</td>
+                        <td>{{ row.diff_count }}</td>
+                        <td>{{ row.tendency_count }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: tipprunde
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn Tipprunde:app
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_CODE
+        value: admin123

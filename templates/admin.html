@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+    <h2>Spiel hinzufügen</h2>
+    <form method="post" action="{{ url_for('add_match') }}" class="grid-form">
+        <div>
+            <label>Heimteam</label>
+            <input type="text" name="home_team" required>
+        </div>
+        <div>
+            <label>Auswärtsteam</label>
+            <input type="text" name="away_team" required>
+        </div>
+        <div>
+            <label>Anstoß</label>
+            <input type="datetime-local" name="kickoff" required>
+        </div>
+        <div>
+            <label>Phase</label>
+            <input type="text" name="stage" value="Gruppenphase">
+        </div>
+        <div>
+            <label>Gruppe</label>
+            <input type="text" name="group_name" placeholder="z. B. A">
+        </div>
+        <div class="full">
+            <button type="submit">Spiel speichern</button>
+        </div>
+    </form>
+</section>
+
+<section class="card">
+    <h2>CSV-Import</h2>
+    <p>CSV-Spalten: <code>home_team,away_team,kickoff,stage,group_name</code></p>
+    <p>Format für kickoff: <code>YYYY-MM-DD HH:MM</code></p>
+
+    <form method="post" action="{{ url_for('import_csv') }}" enctype="multipart/form-data" class="upload-form">
+        <input type="file" name="csv_file" accept=".csv" required>
+        <button type="submit">CSV importieren</button>
+    </form>
+</section>
+
+<section class="card">
+    <h2>Weltmeister-Ergebnis</h2>
+    <form method="post" action="{{ url_for('save_champion_result') }}" class="grid-form one-col">
+        <div>
+            <label>Weltmeister</label>
+            <input type="text" name="champion_result" value="{{ settings.champion_result or '' }}" placeholder="z. B. Brasilien">
+        </div>
+        <div class="full">
+            <button type="submit">Weltmeister speichern</button>
+        </div>
+    </form>
+</section>
+
+<section class="card">
+    <h2>Regeln bearbeiten</h2>
+    <form method="post" action="{{ url_for('save_rules') }}">
+        <label for="rules_text">Regeltext</label>
+        <textarea id="rules_text" name="rules_text" rows="10">{{ settings.rules_text or '' }}</textarea>
+        <button type="submit">Regeln speichern</button>
+    </form>
+</section>
+
+<section class="card">
+    <h2>Ergebnisse eintragen</h2>
+    {% for match in matches %}
+        <div class="match-admin">
+            <div class="match-head">
+                <strong>{{ get_flag(match.home_team) }} {{ match.home_team }} - {{ get_flag(match.away_team) }} {{ match.away_team }}</strong>
+                <span>{{ match.kickoff.strftime("%d.%m.%Y %H:%M") }}</span>
+            </div>
+
+            <form method="post" action="{{ url_for('save_result', match_id=match.id) }}" class="result-form">
+                <input type="number" name="result_home" min="0" value="{{ match.result_home if match.result_home is not none else '' }}" required>
+                <span>:</span>
+                <input type="number" name="result_away" min="0" value="{{ match.result_away if match.result_away is not none else '' }}" required>
+                <button type="submit">Ergebnis speichern</button>
+            </form>
+        </div>
+    {% else %}
+        <p>Noch keine Spiele vorhanden.</p>
+    {% endfor %}
+</section>
+{% endblock %}

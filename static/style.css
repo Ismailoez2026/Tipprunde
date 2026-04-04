@@ -1,0 +1,299 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    background: #f4f6f8;
+    color: #1f2937;
+}
+
+.container {
+    width: min(1100px, 92%);
+    margin: 0 auto;
+}
+
+.topbar {
+    background: #111827;
+    color: white;
+    padding: 16px 0;
+    margin-bottom: 24px;
+}
+
+.topbar-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.topbar h1 {
+    margin: 0 0 4px;
+}
+
+.top-subtitle {
+    margin: 0;
+    color: #cbd5e1;
+    font-size: 14px;
+}
+
+.nav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+.topbar a {
+    color: white;
+    text-decoration: none;
+}
+
+.user-badge {
+    background: #374151;
+    padding: 6px 10px;
+    border-radius: 8px;
+}
+
+.card {
+    background: white;
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+}
+
+.narrow {
+    max-width: 480px;
+}
+
+.flash-wrap {
+    margin-bottom: 20px;
+}
+
+.flash {
+    background: #e5f3ff;
+    border: 1px solid #b3dafc;
+    color: #0f3d66;
+    padding: 12px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+}
+
+input, button, textarea {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #cbd5e1;
+    font-size: 16px;
+    font-family: inherit;
+}
+
+button {
+    cursor: pointer;
+    background: #111827;
+    color: white;
+    border: none;
+}
+
+button:hover {
+    opacity: 0.95;
+}
+
+.grid-form {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.grid-form.one-col {
+    grid-template-columns: 1fr;
+}
+
+.grid-form .full {
+    grid-column: 1 / -1;
+}
+
+.upload-form {
+    display: grid;
+    gap: 12px;
+    max-width: 480px;
+}
+
+.match-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.match-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+
+.stage-line {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+
+.stage-badge, .group-badge {
+    display: inline-block;
+    background: #eef2ff;
+    color: #3730a3;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.group-badge {
+    background: #ecfeff;
+    color: #155e75;
+}
+
+.vs {
+    color: #6b7280;
+    margin: 0 8px;
+}
+
+.kickoff {
+    margin-top: 6px;
+    color: #6b7280;
+}
+
+.result-box {
+    background: #f9fafb;
+    padding: 10px 12px;
+    border-radius: 10px;
+}
+
+.tip-form,
+.result-form {
+    display: grid;
+    grid-template-columns: 90px 30px 90px 1fr;
+    gap: 10px;
+    align-items: center;
+    margin-top: 16px;
+}
+
+.locked {
+    margin-top: 16px;
+    background: #fff7ed;
+    border: 1px solid #fdba74;
+    padding: 12px;
+    border-radius: 10px;
+}
+
+.other-tips {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.tips-list {
+    display: grid;
+    gap: 10px;
+}
+
+.tip-line {
+    display: flex;
+    justify-content: space-between;
+    background: #f9fafb;
+    padding: 10px 12px;
+    border-radius: 10px;
+}
+
+.rules-box {
+    line-height: 1.7;
+}
+
+.ranking-table-wrap {
+    overflow-x: auto;
+}
+
+.ranking-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.ranking-table th,
+.ranking-table td {
+    text-align: left;
+    padding: 12px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.bonus-form {
+    display: grid;
+    grid-template-columns: 1fr 220px;
+    gap: 12px;
+    align-items: center;
+}
+
+.match-admin {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 14px;
+}
+
+.match-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+textarea {
+    min-height: 220px;
+    resize: vertical;
+}
+
+code {
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 6px;
+}
+
+@media (max-width: 768px) {
+    .grid-form {
+        grid-template-columns: 1fr;
+    }
+
+    .tip-form,
+    .result-form {
+        grid-template-columns: 1fr 30px 1fr;
+    }
+
+    .tip-form button,
+    .result-form button {
+        grid-column: 1 / -1;
+    }
+
+    .bonus-form {
+        grid-template-columns: 1fr;
+    }
+
+    .topbar-inner {
+        align-items: flex-start;
+    }
+
+    .nav {
+        width: 100%;
+    }
+}
