@@ -2,16 +2,19 @@ from datetime import datetime
 import csv
 import io
 import os
+from zoneinfo import ZoneInfo
 
 from flask import (
     Flask, render_template, request, redirect,
-    url_for, session, flash
+    url_for, session, flash, Response
 )
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import UniqueConstraint
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
 app = Flask(__name__)
+
 database_url = os.getenv("DATABASE_URL", "sqlite:///tipprunde.db")
 if database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
@@ -23,6 +26,7 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 
 ADMIN_CODE = os.getenv("ADMIN_CODE", "admin123")
+APP_TIMEZONE = ZoneInfo("Europe/Berlin")
 
 
 FLAG_MAP = {
@@ -127,6 +131,27 @@ FLAG_MAP = {
     "scotland": "🏴",
 }
 
+
+def now_local():
+    return datetime.now(APP_TIMEZONE)
+
+
+def ensure_local_timezone(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=APP_TIMEZONE)
+    return dt.astimezone(APP_TIMEZONE)
+
+
+def format_kickoff(dt: datetime) -> str:
+    dt = ensure_local_timezone(dt)
+    return dt.strftime("%d.%m.%Y · %H:%M Uhr")
+
+
+def format_kickoff_input(dt: datetime) -> str:
+    dt = ensure_local_timezone(dt)
+    return dt.strftime("%Y-%m-%dT%H:%M")
+
+
 def get_flag(team_name: str) -> str:
     if not team_name:
         return "🏳️"
@@ -144,12 +169,19 @@ def inject_globals():
     return {
         "get_flag": get_flag,
         "result_text": result_text,
+        "format_kickoff": format_kickoff,
+        "format_kickoff_input": format_kickoff_input,
+        "current_year": datetime.now().year,
     }
 
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    is_approved = db.Column(db.Boolean, default=False, nullable=False)
+    paid = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=now_local, nullable=False)
 
 
 class Match(db.Model):
@@ -163,7 +195,7 @@ class Match(db.Model):
     result_away = db.Column(db.Integer, nullable=True)
 
     def has_started(self):
-        return datetime.now() >= self.kickoff
+        return now_local() >= ensure_local_timezone(self.kickoff)
 
     def has_result(self):
         return self.result_home is not None and self.result_away is not None
@@ -175,7 +207,7 @@ class Prediction(db.Model):
     match_id = db.Column(db.Integer, db.ForeignKey("match.id"), nullable=False)
     pred_home = db.Column(db.Integer, nullable=False)
     pred_away = db.Column(db.Integer, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.now, nullable=False)
+    created_at = db.Column(db.DateTime, default=now_local, nullable=False)
 
     user = db.relationship("User", backref="predictions")
     match = db.relationship("Match", backref="predictions")
@@ -241,19 +273,28 @@ def bonus_is_open():
     first_kickoff = get_first_kickoff()
     if not first_kickoff:
         return True
-    return datetime.now() < first_kickoff
+    return now_local() < ensure_local_timezone(first_kickoff)
 
 
 def match_is_open(match: Match):
-    return datetime.now() < match.kickoff
+    return now_local() < ensure_local_timezone(match.kickoff)
 
 
 def visible_predictions(match: Match):
     if match.has_started():
-        return Prediction.query.filter_by(match_id=match.id).order_by(Prediction.created_at.asc()).all()
+        return (
+            Prediction.query
+            .join(User, User.id == Prediction.user_id)
+            .filter(Prediction.match_id == match.id, User.is_approved.is_(True))
+            .order_by(Prediction.created_at.asc())
+            .all()
+        )
 
     current_user = get_current_user()
     if not current_user:
+        return []
+
+    if not current_user.is_approved:
         return []
 
     return Prediction.query.filter_by(match_id=match.id, user_id=current_user.id).all()
@@ -278,6 +319,9 @@ def calculate_points(pred_home, pred_away, res_home, res_away):
 
 
 def user_total_points(user: User):
+    if not user.is_approved:
+        return 0
+
     total = 0
     for pred in user.predictions:
         match = pred.match
@@ -293,7 +337,7 @@ def user_total_points(user: User):
 
 
 def ranking():
-    users = User.query.order_by(User.name.asc()).all()
+    users = User.query.filter_by(is_approved=True).order_by(User.name.asc()).all()
     rows = []
     for user in users:
         exact = 0
@@ -319,7 +363,15 @@ def ranking():
             "tendency_count": tendency_count
         })
 
-    rows.sort(key=lambda x: (-x["total"], -x["exact_count"], -x["diff_count"], -x["tendency_count"], x["user"].name.lower()))
+    rows.sort(
+        key=lambda x: (
+            -x["total"],
+            -x["exact_count"],
+            -x["diff_count"],
+            -x["tendency_count"],
+            x["user"].name.lower()
+        )
+    )
     return rows
 
 
@@ -329,7 +381,7 @@ def index():
     matches = Match.query.order_by(Match.kickoff.asc()).all()
     user_predictions = {}
 
-    if current_user:
+    if current_user and current_user.is_approved:
         preds = Prediction.query.filter_by(user_id=current_user.id).all()
         user_predictions = {p.match_id: p for p in preds}
 
@@ -340,7 +392,7 @@ def index():
     } for match in matches]
 
     bonus_prediction = None
-    if current_user:
+    if current_user and current_user.is_approved:
         bonus_prediction = BonusPrediction.query.filter_by(user_id=current_user.id).first()
 
     settings = get_or_create_settings()
@@ -361,19 +413,58 @@ def index():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
+        mode = request.form.get("mode", "login")
         name = request.form.get("name", "").strip()
-        if not name:
-            flash("Bitte einen Namen eingeben.")
+        password = request.form.get("password", "")
+        password_confirm = request.form.get("password_confirm", "")
+
+        if not name or not password:
+            flash("Bitte Name und Passwort eingeben.")
             return redirect(url_for("login"))
 
-        user = User.query.filter_by(name=name).first()
-        if not user:
-            user = User(name=name)
+        if mode == "register":
+            if len(password) < 4:
+                flash("Das Passwort muss mindestens 4 Zeichen lang sein.")
+                return redirect(url_for("login"))
+
+            if password != password_confirm:
+                flash("Die Passwörter stimmen nicht überein.")
+                return redirect(url_for("login"))
+
+            existing = User.query.filter_by(name=name).first()
+            if existing:
+                flash("Dieser Name ist bereits vergeben.")
+                return redirect(url_for("login"))
+
+            user = User(
+                name=name,
+                password_hash=generate_password_hash(password),
+                is_approved=False,
+                paid=False
+            )
             db.session.add(user)
             db.session.commit()
 
+            session["user_id"] = user.id
+            flash("Registrierung erfolgreich. Dein Zugang wartet auf Freischaltung.")
+            return redirect(url_for("index"))
+
+        user = User.query.filter_by(name=name).first()
+        if not user:
+            flash("Benutzer nicht gefunden. Registriere dich zuerst.")
+            return redirect(url_for("login"))
+
+        if not check_password_hash(user.password_hash, password):
+            flash("Falsches Passwort.")
+            return redirect(url_for("login"))
+
         session["user_id"] = user.id
-        flash(f"Angemeldet als {user.name}.")
+
+        if user.is_approved:
+            flash(f"Angemeldet als {user.name}.")
+        else:
+            flash(f"Angemeldet als {user.name}. Besucher-Modus aktiv, bis du freigeschaltet wirst.")
+
         return redirect(url_for("index"))
 
     return render_template("login.html", current_user=get_current_user())
@@ -392,6 +483,10 @@ def save_tip(match_id):
     if not current_user:
         flash("Bitte zuerst anmelden.")
         return redirect(url_for("login"))
+
+    if not current_user.is_approved:
+        flash("Dein Account ist noch nicht freigeschaltet. Tipps sind im Besucher-Modus nicht möglich.")
+        return redirect(url_for("index"))
 
     match = db.session.get(Match, match_id)
     if not match:
@@ -415,10 +510,15 @@ def save_tip(match_id):
     if existing:
         existing.pred_home = pred_home
         existing.pred_away = pred_away
-        existing.created_at = datetime.now()
+        existing.created_at = now_local()
         flash(f"Tipp für {match.home_team} - {match.away_team} aktualisiert.")
     else:
-        db.session.add(Prediction(user_id=current_user.id, match_id=match.id, pred_home=pred_home, pred_away=pred_away))
+        db.session.add(Prediction(
+            user_id=current_user.id,
+            match_id=match.id,
+            pred_home=pred_home,
+            pred_away=pred_away
+        ))
         flash(f"Tipp für {match.home_team} - {match.away_team} gespeichert.")
 
     db.session.commit()
@@ -431,6 +531,10 @@ def save_bonus():
     if not current_user:
         flash("Bitte zuerst anmelden.")
         return redirect(url_for("login"))
+
+    if not current_user.is_approved:
+        flash("Dein Account ist noch nicht freigeschaltet. Der Weltmeistertipp ist im Besucher-Modus nicht möglich.")
+        return redirect(url_for("index"))
 
     if not bonus_is_open():
         flash("Der Weltmeister-Bonustipp ist bereits gesperrt.")
@@ -471,11 +575,83 @@ def admin():
     if not is_admin():
         return redirect(url_for("admin_login"))
 
+    users = User.query.order_by(User.created_at.desc(), User.name.asc()).all()
+
     return render_template(
         "admin.html",
         matches=Match.query.order_by(Match.kickoff.asc()).all(),
         settings=get_or_create_settings(),
-        current_user=get_current_user()
+        current_user=get_current_user(),
+        users=users
+    )
+
+
+@app.route("/admin/approve-user/<int:user_id>")
+def approve_user(user_id):
+    if not is_admin():
+        return redirect(url_for("admin_login"))
+
+    user = db.session.get(User, user_id)
+    if user:
+        user.is_approved = True
+        user.paid = True
+        db.session.commit()
+        flash(f"{user.name} wurde freigeschaltet.")
+
+    return redirect(url_for("admin"))
+
+
+@app.route("/admin/toggle-paid/<int:user_id>")
+def toggle_paid(user_id):
+    if not is_admin():
+        return redirect(url_for("admin_login"))
+
+    user = db.session.get(User, user_id)
+    if user:
+        user.paid = not user.paid
+        db.session.commit()
+        flash(f"Bezahlstatus von {user.name} wurde aktualisiert.")
+
+    return redirect(url_for("admin"))
+
+
+@app.route("/admin/revoke-user/<int:user_id>")
+def revoke_user(user_id):
+    if not is_admin():
+        return redirect(url_for("admin_login"))
+
+    user = db.session.get(User, user_id)
+    if user:
+        user.is_approved = False
+        db.session.commit()
+        flash(f"{user.name} wurde wieder in den Besucher-Modus gesetzt.")
+
+    return redirect(url_for("admin"))
+
+
+@app.route("/admin/export-users")
+def export_users():
+    if not is_admin():
+        return redirect(url_for("admin_login"))
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["name", "freigeschaltet", "bezahlt", "registriert_am"])
+
+    users = User.query.order_by(User.created_at.asc()).all()
+    for user in users:
+        writer.writerow([
+            user.name,
+            "ja" if user.is_approved else "nein",
+            "ja" if user.paid else "nein",
+            ensure_local_timezone(user.created_at).strftime("%d.%m.%Y %H:%M")
+        ])
+
+    csv_data = output.getvalue()
+    return Response(
+        csv_data,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=teilnehmer.csv"}
     )
 
 
@@ -495,12 +671,18 @@ def add_match():
         return redirect(url_for("admin"))
 
     try:
-        kickoff = datetime.strptime(kickoff_str, "%Y-%m-%dT%H:%M")
+        kickoff = datetime.strptime(kickoff_str, "%Y-%m-%dT%H:%M").replace(tzinfo=APP_TIMEZONE)
     except ValueError:
         flash("Ungültiges Datum/Zeit-Format.")
         return redirect(url_for("admin"))
 
-    db.session.add(Match(home_team=home_team, away_team=away_team, kickoff=kickoff, stage=stage, group_name=group_name))
+    db.session.add(Match(
+        home_team=home_team,
+        away_team=away_team,
+        kickoff=kickoff,
+        stage=stage,
+        group_name=group_name
+    ))
     db.session.commit()
     flash("Spiel hinzugefügt.")
     return redirect(url_for("admin"))
@@ -535,12 +717,18 @@ def import_csv():
             if not home_team or not away_team or not kickoff_str:
                 continue
 
-            kickoff = datetime.strptime(kickoff_str, "%Y-%m-%d %H:%M")
+            kickoff = datetime.strptime(kickoff_str, "%Y-%m-%d %H:%M").replace(tzinfo=APP_TIMEZONE)
             exists = Match.query.filter_by(home_team=home_team, away_team=away_team, kickoff=kickoff).first()
             if exists:
                 continue
 
-            db.session.add(Match(home_team=home_team, away_team=away_team, kickoff=kickoff, stage=stage, group_name=group_name))
+            db.session.add(Match(
+                home_team=home_team,
+                away_team=away_team,
+                kickoff=kickoff,
+                stage=stage,
+                group_name=group_name
+            ))
             count += 1
 
         db.session.commit()
@@ -610,9 +798,9 @@ def init_db():
 
     if Match.query.count() == 0:
         db.session.add_all([
-            Match(home_team="Deutschland", away_team="Frankreich", kickoff=datetime(2026, 6, 12, 21, 0), stage="Gruppenphase", group_name="A"),
-            Match(home_team="Brasilien", away_team="Spanien", kickoff=datetime(2026, 6, 13, 18, 0), stage="Gruppenphase", group_name="B"),
-            Match(home_team="Argentinien", away_team="Portugal", kickoff=datetime(2026, 6, 14, 20, 0), stage="Gruppenphase", group_name="C"),
+            Match(home_team="Deutschland", away_team="Frankreich", kickoff=datetime(2026, 6, 12, 21, 0, tzinfo=APP_TIMEZONE), stage="Gruppenphase", group_name="A"),
+            Match(home_team="Brasilien", away_team="Spanien", kickoff=datetime(2026, 6, 13, 18, 0, tzinfo=APP_TIMEZONE), stage="Gruppenphase", group_name="B"),
+            Match(home_team="Argentinien", away_team="Portugal", kickoff=datetime(2026, 6, 14, 20, 0, tzinfo=APP_TIMEZONE), stage="Gruppenphase", group_name="C"),
         ])
         db.session.commit()
 

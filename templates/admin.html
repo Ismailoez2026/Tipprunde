@@ -1,85 +1,157 @@
 {% extends "base.html" %}
+{% block title %}Admin · Tipprunde 2026{% endblock %}
+
 {% block content %}
-<section class="card">
-    <h2>Spiel hinzufügen</h2>
-    <form method="post" action="{{ url_for('add_match') }}" class="grid-form">
-        <div>
-            <label>Heimteam</label>
-            <input type="text" name="home_team" required>
-        </div>
-        <div>
-            <label>Auswärtsteam</label>
-            <input type="text" name="away_team" required>
-        </div>
-        <div>
-            <label>Anstoß</label>
-            <input type="datetime-local" name="kickoff" required>
-        </div>
-        <div>
-            <label>Phase</label>
-            <input type="text" name="stage" value="Gruppenphase">
-        </div>
-        <div>
-            <label>Gruppe</label>
-            <input type="text" name="group_name" placeholder="z. B. A">
-        </div>
-        <div class="full">
-            <button type="submit">Spiel speichern</button>
-        </div>
-    </form>
+<section class="admin-header">
+    <div>
+        <div class="hero-badge admin-badge">🛠 Verwaltung</div>
+        <h1 class="admin-title">Admin-Bereich</h1>
+        <p class="admin-subtitle">Teilnehmer freischalten, Spiele verwalten, Ergebnisse eintragen.</p>
+    </div>
 </section>
 
 <section class="card">
-    <h2>CSV-Import</h2>
-    <p>CSV-Spalten: <code>home_team,away_team,kickoff,stage,group_name</code></p>
-    <p>Format für kickoff: <code>YYYY-MM-DD HH:MM</code></p>
+    <div class="section-head">
+        <h2>Teilnehmer</h2>
+        <a class="btn btn-ghost" href="{{ url_for('export_users') }}">CSV Export</a>
+    </div>
 
-    <form method="post" action="{{ url_for('import_csv') }}" enctype="multipart/form-data" class="upload-form">
-        <input type="file" name="csv_file" accept=".csv" required>
-        <button type="submit">CSV importieren</button>
-    </form>
-</section>
+    {% if users %}
+        <div class="admin-match-list">
+            {% for user in users %}
+                <article class="admin-match-card">
+                    <div class="admin-match-head">
+                        <div>
+                            <strong>{{ user.name }}</strong>
+                            <div class="subtle-line">
+                                Registriert: {{ user.created_at.strftime("%d.%m.%Y %H:%M") if user.created_at else "-" }}
+                            </div>
+                        </div>
 
-<section class="card">
-    <h2>Weltmeister-Ergebnis</h2>
-    <form method="post" action="{{ url_for('save_champion_result') }}" class="grid-form one-col">
-        <div>
-            <label>Weltmeister</label>
-            <input type="text" name="champion_result" value="{{ settings.champion_result or '' }}" placeholder="z. B. Brasilien">
-        </div>
-        <div class="full">
-            <button type="submit">Weltmeister speichern</button>
-        </div>
-    </form>
-</section>
+                        <div class="status-actions">
+                            {% if user.is_approved %}
+                                <span class="result-badge result-done">Freigeschaltet</span>
+                            {% else %}
+                                <span class="result-badge result-locked">Besucher</span>
+                            {% endif %}
 
-<section class="card">
-    <h2>Regeln bearbeiten</h2>
-    <form method="post" action="{{ url_for('save_rules') }}">
-        <label for="rules_text">Regeltext</label>
-        <textarea id="rules_text" name="rules_text" rows="10">{{ settings.rules_text or '' }}</textarea>
-        <button type="submit">Regeln speichern</button>
-    </form>
-</section>
+                            {% if user.paid %}
+                                <span class="result-badge result-open">Bezahlt</span>
+                            {% else %}
+                                <span class="result-badge">Unbezahlt</span>
+                            {% endif %}
+                        </div>
+                    </div>
 
-<section class="card">
-    <h2>Ergebnisse eintragen</h2>
-    {% for match in matches %}
-        <div class="match-admin">
-            <div class="match-head">
-                <strong>{{ get_flag(match.home_team) }} {{ match.home_team }} - {{ get_flag(match.away_team) }} {{ match.away_team }}</strong>
-                <span>{{ match.kickoff.strftime("%d.%m.%Y %H:%M") }}</span>
-            </div>
+                    <div class="admin-user-actions">
+                        {% if not user.is_approved %}
+                            <a class="btn btn-primary" href="{{ url_for('approve_user', user_id=user.id) }}">Freischalten</a>
+                        {% else %}
+                            <a class="btn btn-ghost" href="{{ url_for('revoke_user', user_id=user.id) }}">Auf Besucher setzen</a>
+                        {% endif %}
 
-            <form method="post" action="{{ url_for('save_result', match_id=match.id) }}" class="result-form">
-                <input type="number" name="result_home" min="0" value="{{ match.result_home if match.result_home is not none else '' }}" required>
-                <span>:</span>
-                <input type="number" name="result_away" min="0" value="{{ match.result_away if match.result_away is not none else '' }}" required>
-                <button type="submit">Ergebnis speichern</button>
-            </form>
+                        <a class="btn btn-gold" href="{{ url_for('toggle_paid', user_id=user.id) }}">
+                            {% if user.paid %}Bezahlt zurücksetzen{% else %}Als bezahlt markieren{% endif %}
+                        </a>
+                    </div>
+                </article>
+            {% endfor %}
         </div>
     {% else %}
-        <p>Noch keine Spiele vorhanden.</p>
-    {% endfor %}
+        <div class="empty-box">Noch keine Teilnehmer vorhanden.</div>
+    {% endif %}
+</section>
+
+<section class="admin-grid">
+    <div class="card">
+        <div class="section-head">
+            <h2>Spiel hinzufügen</h2>
+            <span class="section-badge">Neu</span>
+        </div>
+
+        <form method="post" action="{{ url_for('add_match') }}" class="stack-form">
+            <input type="text" name="home_team" placeholder="Heimteam" required>
+            <input type="text" name="away_team" placeholder="Auswärtsteam" required>
+            <input type="datetime-local" name="kickoff" required>
+            <input type="text" name="stage" placeholder="z. B. Gruppenphase">
+            <input type="text" name="group_name" placeholder="z. B. A">
+            <button class="btn btn-primary" type="submit">Spiel speichern</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="section-head">
+            <h2>CSV-Import</h2>
+            <span class="section-badge">Bulk</span>
+        </div>
+
+        <form method="post" action="{{ url_for('import_csv') }}" enctype="multipart/form-data" class="stack-form">
+            <input type="file" name="csv_file" accept=".csv" required>
+            <button class="btn btn-primary" type="submit">CSV importieren</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="section-head">
+            <h2>Weltmeister-Ergebnis</h2>
+            <span class="section-badge">Bonus</span>
+        </div>
+
+        <form method="post" action="{{ url_for('save_champion_result') }}" class="stack-form">
+            <input type="text" name="champion_result" placeholder="z. B. Deutschland"
+                   value="{{ settings.champion_result or '' }}">
+            <button class="btn btn-gold" type="submit">Speichern</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="section-head">
+            <h2>Regeln</h2>
+            <span class="section-badge">Text</span>
+        </div>
+
+        <form method="post" action="{{ url_for('save_rules') }}" class="stack-form">
+            <textarea name="rules_text" rows="10">{{ settings.rules_text or '' }}</textarea>
+            <button class="btn btn-primary" type="submit">Regeln speichern</button>
+        </form>
+    </div>
+</section>
+
+<section class="card">
+    <div class="section-head">
+        <h2>Spiele verwalten</h2>
+        <span class="section-badge">{{ matches|length }} Einträge</span>
+    </div>
+
+    {% if matches %}
+        <div class="admin-match-list">
+            {% for match in matches %}
+                <article class="admin-match-card">
+                    <div class="admin-match-head">
+                        <div>
+                            <strong>{{ get_flag(match.home_team) }} {{ match.home_team }} vs {{ match.away_team }} {{ get_flag(match.away_team) }}</strong>
+                            <div class="subtle-line">
+                                {{ match.stage }}{% if match.group_name %} · Gruppe {{ match.group_name }}{% endif %} · {{ format_kickoff(match.kickoff) }}
+                            </div>
+                        </div>
+                        <div class="result-badge {% if match.has_result() %}result-done{% else %}result-open{% endif %}">
+                            {{ result_text(match) }}
+                        </div>
+                    </div>
+
+                    <form method="post" action="{{ url_for('save_result', match_id=match.id) }}" class="result-form">
+                        <input type="number" min="0" name="result_home" placeholder="0"
+                               value="{{ match.result_home if match.result_home is not none else '' }}" required>
+                        <span class="colon">:</span>
+                        <input type="number" min="0" name="result_away" placeholder="0"
+                               value="{{ match.result_away if match.result_away is not none else '' }}" required>
+                        <button class="btn btn-admin" type="submit">Ergebnis speichern</button>
+                    </form>
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-box">Noch keine Spiele vorhanden.</div>
+    {% endif %}
 </section>
 {% endblock %}

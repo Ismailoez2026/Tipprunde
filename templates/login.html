@@ -1,11 +1,205 @@
 {% extends "base.html" %}
+{% block title %}Tipprunde 2026{% endblock %}
+
 {% block content %}
-<section class="card narrow">
-    <h2>Anmelden</h2>
-    <form method="post">
-        <label for="name">Dein Name</label>
-        <input type="text" id="name" name="name" required>
-        <button type="submit">Login</button>
-    </form>
+<section class="hero">
+    <div class="hero-copy">
+        <div class="hero-badge">⚽ Privates Tippspiel</div>
+        <h1>Tipprunde 2026</h1>
+        <p>
+            Tipps abgeben, Ergebnisse verfolgen und live die Rangliste checken.
+            Vor Anstoß bleibt alles geheim – ab Anstoß wird’s spannend.
+        </p>
+        <div class="hero-meta">
+            <span>🌍 Turniermodus</span>
+            <span>🏆 Bonus-Weltmeistertipp</span>
+            <span>🌙 Dark Football UI</span>
+        </div>
+    </div>
+
+    <div class="hero-side">
+        <div class="hero-score-card">
+            <div class="mini-label">Live Gefühl</div>
+            <div class="mini-score">2026</div>
+            <div class="mini-sub">Tippen · Punkten · Gewinnen</div>
+        </div>
+    </div>
+</section>
+
+{% if current_user and not current_user.is_approved %}
+<section class="visitor-banner">
+    <div class="card">
+        <div class="section-head">
+            <h2>Besucher-Modus aktiv</h2>
+            <span class="section-badge">Wartet auf Freischaltung</span>
+        </div>
+        <p class="auth-text">
+            Du kannst dir schon alles ansehen, aber noch keine Tipps abgeben und erscheinst noch nicht in der Rangliste.
+            Nach deiner Freischaltung ist dein Zugang für die gesamte Dauer aktiv.
+        </p>
+    </div>
+</section>
+{% endif %}
+
+<section class="grid-two">
+    <div class="card">
+        <div class="section-head">
+            <h2>Spiele & Tipps</h2>
+            <span class="section-badge">{{ rows|length }} Spiele</span>
+        </div>
+
+        {% if rows %}
+            <div class="match-list">
+                {% for row in rows %}
+                    {% set match = row.match %}
+                    {% set user_pred = user_predictions.get(match.id) %}
+                    <article class="match-card">
+                        <div class="match-topline">
+                            <span class="stage-badge">
+                                {{ match.stage }}
+                                {% if match.group_name %} · Gruppe {{ match.group_name }}{% endif %}
+                            </span>
+
+                            {% if match.has_result() %}
+                                <span class="result-badge result-done">Ergebnis {{ result_text(match) }}</span>
+                            {% elif row.open %}
+                                <span class="result-badge result-open">Tipp offen</span>
+                            {% else %}
+                                <span class="result-badge result-locked">Gesperrt</span>
+                            {% endif %}
+                        </div>
+
+                        <div class="match-main">
+                            <div class="team-row">
+                                <div class="team">
+                                    <span class="flag">{{ get_flag(match.home_team) }}</span>
+                                    <span class="team-name">{{ match.home_team }}</span>
+                                </div>
+                                <div class="versus">VS</div>
+                                <div class="team team-right">
+                                    <span class="team-name">{{ match.away_team }}</span>
+                                    <span class="flag">{{ get_flag(match.away_team) }}</span>
+                                </div>
+                            </div>
+
+                            <div class="kickoff-line">
+                                <span>🕒 {{ format_kickoff(match.kickoff) }}</span>
+                            </div>
+                        </div>
+
+                        {% if current_user and current_user.is_approved %}
+                            <form class="tip-form" method="post" action="{{ url_for('save_tip', match_id=match.id) }}">
+                                <div class="tip-inputs">
+                                    <input type="number" min="0" name="pred_home" placeholder="0"
+                                           value="{{ user_pred.pred_home if user_pred else '' }}"
+                                           {% if not row.open %}disabled{% endif %}>
+                                    <span class="colon">:</span>
+                                    <input type="number" min="0" name="pred_away" placeholder="0"
+                                           value="{{ user_pred.pred_away if user_pred else '' }}"
+                                           {% if not row.open %}disabled{% endif %}>
+                                </div>
+
+                                <button class="btn btn-primary" type="submit" {% if not row.open %}disabled{% endif %}>
+                                    {% if user_pred %}Tipp aktualisieren{% else %}Tipp speichern{% endif %}
+                                </button>
+                            </form>
+                        {% elif current_user %}
+                            <div class="empty-box">Im Besucher-Modus kannst du noch keine Tipps abgeben.</div>
+                        {% else %}
+                            <div class="empty-box">Bitte einloggen, um Tipps abzugeben.</div>
+                        {% endif %}
+
+                        <div class="prediction-visibility">
+                            <h4>Sichtbare Tipps</h4>
+                            {% if row.display_predictions %}
+                                <div class="prediction-list">
+                                    {% for pred in row.display_predictions %}
+                                        <div class="prediction-pill">
+                                            <strong>{{ pred.user.name }}</strong>
+                                            <span>{{ pred.pred_home }}:{{ pred.pred_away }}</span>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="empty-inline">Noch keine sichtbaren Tipps.</div>
+                            {% endif %}
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-box">Noch keine Spiele vorhanden.</div>
+        {% endif %}
+    </div>
+
+    <div class="side-column">
+        <div class="card">
+            <div class="section-head">
+                <h2>Weltmeistertipp</h2>
+                <span class="section-badge">+10 Punkte</span>
+            </div>
+
+            {% if current_user and current_user.is_approved %}
+                <form method="post" action="{{ url_for('save_bonus') }}" class="stack-form">
+                    <input type="text" name="champion_team" placeholder="z. B. Deutschland"
+                           value="{{ bonus_prediction.champion_team if bonus_prediction else '' }}"
+                           {% if not bonus_open %}disabled{% endif %}>
+                    <button class="btn btn-gold" type="submit" {% if not bonus_open %}disabled{% endif %}>
+                        {% if bonus_prediction %}Weltmeistertipp aktualisieren{% else %}Weltmeistertipp speichern{% endif %}
+                    </button>
+                </form>
+
+                {% if champion_result %}
+                    <div class="info-line">🏆 Offizieller Weltmeister: <strong>{{ champion_result }}</strong></div>
+                {% endif %}
+
+                {% if not bonus_open %}
+                    <div class="empty-inline">Der Bonustipp ist bereits gesperrt.</div>
+                {% endif %}
+            {% elif current_user %}
+                <div class="empty-box">Im Besucher-Modus ist der Weltmeistertipp noch nicht verfügbar.</div>
+            {% else %}
+                <div class="empty-box">Bitte einloggen, um deinen Weltmeistertipp abzugeben.</div>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            <div class="section-head">
+                <h2>Rangliste</h2>
+                <span class="section-badge">Live</span>
+            </div>
+
+            {% if ranking_rows %}
+                <div class="ranking-list">
+                    {% for row in ranking_rows %}
+                        <div class="ranking-row {% if loop.index == 1 %}rank-1{% elif loop.index == 2 %}rank-2{% elif loop.index == 3 %}rank-3{% endif %}">
+                            <div class="rank-pos">#{{ loop.index }}</div>
+                            <div class="rank-user">
+                                <strong>{{ row.user.name }}</strong>
+                                <small>
+                                    Exakt {{ row.exact_count }} · Diff {{ row.diff_count }} · Tendenz {{ row.tendency_count }}
+                                </small>
+                            </div>
+                            <div class="rank-points">{{ row.total }} P</div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-box">Noch keine freigeschalteten Teilnehmer in der Rangliste.</div>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            <div class="section-head">
+                <h2>Regeln</h2>
+                <span class="section-badge">Fair Play</span>
+            </div>
+            <div class="rules-box">
+                {% for line in rules_text.split('\n') %}
+                    <p>{{ line }}</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
 </section>
 {% endblock %}
