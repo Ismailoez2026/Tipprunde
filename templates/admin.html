@@ -6,7 +6,7 @@
     <div>
         <div class="hero-badge admin-badge">🛠 Verwaltung</div>
         <h1 class="admin-title">Admin-Bereich</h1>
-        <p class="admin-subtitle">Teilnehmer freischalten, Spiele verwalten, Ergebnisse eintragen.</p>
+        <p class="admin-subtitle">Teilnehmer freischalten, Namen ändern, Spiele verwalten, Ergebnisse eintragen.</p>
     </div>
 </section>
 
@@ -42,6 +42,21 @@
                             {% endif %}
                         </div>
                     </div>
+
+                    <form method="post" action="{{ url_for('admin_change_name', user_id=user.id) }}" class="stack-form">
+                        <label for="new_name_{{ user.id }}">Name ändern</label>
+                        <div class="result-form">
+                            <input
+                                type="text"
+                                id="new_name_{{ user.id }}"
+                                name="new_name"
+                                value="{{ user.name }}"
+                                placeholder="Neuer Name"
+                                required
+                            >
+                            <button class="btn btn-admin" type="submit">Name speichern</button>
+                        </div>
+                    </form>
 
                     <div class="admin-user-actions">
                         {% if not user.is_approved %}

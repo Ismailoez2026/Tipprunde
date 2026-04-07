@@ -41,6 +41,180 @@
 </section>
 {% endif %}
 
+<section class="top3-section">
+    <div class="section-head">
+        <h2>Top 3</h2>
+        <span class="section-badge">Aktuelle Spitze</span>
+    </div>
+
+    {% if top_three %}
+    <div class="top3-grid">
+        {% for row in top_three %}
+        <div class="top3-card place-{{ loop.index }}">
+            <div class="top3-place">
+                {% if loop.index == 1 %}
+                    🥇 Platz 1
+                {% elif loop.index == 2 %}
+                    🥈 Platz 2
+                {% else %}
+                    🥉 Platz 3
+                {% endif %}
+            </div>
+            <h3>{{ row.user.name }}</h3>
+            <div class="top3-points">{{ row.total }} Punkte</div>
+            <div class="top3-stats">
+                Exakt: {{ row.exact_count }} · Diff: {{ row.diff_count }} · Tendenz: {{ row.tendency_count }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card">
+        <p class="muted">Noch keine freigeschalteten Teilnehmer in der Rangliste.</p>
+    </div>
+    {% endif %}
+</section>
+
+<section class="overview-grid">
+    <div class="card">
+        <div class="section-head">
+            <h2>Mitglieder</h2>
+            <span class="section-badge">{{ members|length }} insgesamt</span>
+        </div>
+
+        <div class="member-list">
+            {% for member in members %}
+            <div class="member-row">
+                <div class="member-left">
+                    <strong>{{ member.name }}</strong>
+                    <div class="muted">
+                        {% if member.is_approved %}
+                            Freigeschaltet
+                        {% else %}
+                            Besucher-Modus
+                        {% endif %}
+                        ·
+                        {% if member.paid %}
+                            Bezahlt
+                        {% else %}
+                            Nicht bezahlt
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="member-right">
+                    {% if member.is_approved %}
+                        <span class="member-rank">#{{ rank_map.get(member.id, "-") }}</span>
+                        <span class="member-points">{{ points_map.get(member.id, 0) }} Pkt</span>
+                    {% else %}
+                        <span class="member-pending">wartet</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="section-head">
+            <h2>Rangliste</h2>
+            <span class="section-badge">Live-Stand</span>
+        </div>
+
+        {% if ranking_rows %}
+        <div class="ranking-list">
+            {% for row in ranking_rows %}
+            <div class="ranking-row {% if loop.index == 1 %}top-rank{% endif %}">
+                <div class="ranking-left">
+                    <span class="ranking-place">#{{ loop.index }}</span>
+                    <strong>{{ row.user.name }}</strong>
+                </div>
+
+                <div class="ranking-right">
+                    <span class="ranking-total">{{ row.total }} Pkt</span>
+                    <span class="ranking-detail">
+                        Exakt: {{ row.exact_count }} · Diff: {{ row.diff_count }} · Tendenz: {{ row.tendency_count }}
+                    </span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="muted">Noch keine freigeschalteten Teilnehmer in der Rangliste.</p>
+        {% endif %}
+    </div>
+</section>
+
+<section class="overview-grid">
+    <div class="card">
+        <div class="section-head">
+            <h2>Mitglieder</h2>
+            <span class="section-badge">{{ members|length }} insgesamt</span>
+        </div>
+
+        <div class="member-list">
+            {% for member in members %}
+            <div class="member-row">
+                <div class="member-left">
+                    <strong>{{ member.name }}</strong>
+                    <div class="muted">
+                        {% if member.is_approved %}
+                            Freigeschaltet
+                        {% else %}
+                            Besucher-Modus
+                        {% endif %}
+                        ·
+                        {% if member.paid %}
+                            Bezahlt
+                        {% else %}
+                            Nicht bezahlt
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="member-right">
+                    {% if member.is_approved %}
+                        <span class="member-rank">#{{ rank_map.get(member.id, "-") }}</span>
+                        <span class="member-points">{{ points_map.get(member.id, 0) }} Pkt</span>
+                    {% else %}
+                        <span class="member-pending">wartet</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="section-head">
+            <h2>Rangliste</h2>
+            <span class="section-badge">Live-Stand</span>
+        </div>
+
+        {% if ranking_rows %}
+        <div class="ranking-list">
+            {% for row in ranking_rows %}
+            <div class="ranking-row {% if loop.index == 1 %}top-rank{% endif %}">
+                <div class="ranking-left">
+                    <span class="ranking-place">#{{ loop.index }}</span>
+                    <strong>{{ row.user.name }}</strong>
+                </div>
+
+                <div class="ranking-right">
+                    <span class="ranking-total">{{ row.total }} Pkt</span>
+                    <span class="ranking-detail">
+                        Exakt: {{ row.exact_count }} · Diff: {{ row.diff_count }} · Tendenz: {{ row.tendency_count }}
+                    </span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="muted">Noch keine freigeschalteten Teilnehmer in der Rangliste.</p>
+        {% endif %}
+    </div>
+</section>
+
 <section class="grid-two">
     <div class="card">
         <div class="section-head">

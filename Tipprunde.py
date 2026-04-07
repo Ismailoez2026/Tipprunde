@@ -396,17 +396,26 @@ def index():
         bonus_prediction = BonusPrediction.query.filter_by(user_id=current_user.id).first()
 
     settings = get_or_create_settings()
+    ranking_rows = ranking()
+    members = User.query.order_by(User.is_approved.desc(), User.name.asc()).all()
+    points_map = {row["user"].id: row["total"] for row in ranking_rows}
+    rank_map = {row["user"].id: index + 1 for index, row in enumerate(ranking_rows)}
+    top_three = ranking_rows[:3]
 
     return render_template(
         "index.html",
         current_user=current_user,
         rows=rows,
         user_predictions=user_predictions,
-        ranking_rows=ranking(),
+        ranking_rows=ranking_rows,
         bonus_prediction=bonus_prediction,
         bonus_open=bonus_is_open(),
         champion_result=settings.champion_result,
         rules_text=settings.rules_text,
+        members=members,
+        points_map=points_map,
+        rank_map=rank_map,
+        top_three=top_three,
     )
 
 
@@ -568,6 +577,38 @@ def admin_login():
         return redirect(url_for("admin_login"))
 
     return render_template("admin_login.html", current_user=get_current_user())
+
+@app.route("/admin/change-name/<int:user_id>", methods=["POST"])
+def admin_change_name(user_id):
+    if not is_admin():
+        return redirect(url_for("admin_login"))
+
+    user = db.session.get(User, user_id)
+    if not user:
+        flash("User nicht gefunden.")
+        return redirect(url_for("admin"))
+
+    new_name = request.form.get("new_name", "").strip()
+
+    if not new_name:
+        flash("Name darf nicht leer sein.")
+        return redirect(url_for("admin"))
+
+    if len(new_name) < 2:
+        flash("Name muss mindestens 2 Zeichen lang sein.")
+        return redirect(url_for("admin"))
+
+    existing = User.query.filter(User.name == new_name, User.id != user.id).first()
+    if existing:
+        flash("Dieser Name ist bereits vergeben.")
+        return redirect(url_for("admin"))
+
+    old_name = user.name
+    user.name = new_name
+    db.session.commit()
+
+    flash(f"Name geändert: {old_name} → {new_name}")
+    return redirect(url_for("admin"))
 
 
 @app.route("/admin")
