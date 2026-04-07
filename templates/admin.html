@@ -6,7 +6,7 @@
     <div>
         <div class="hero-badge admin-badge">🛠 Verwaltung</div>
         <h1 class="admin-title">Admin-Bereich</h1>
-        <p class="admin-subtitle">Teilnehmer freischalten, Namen ändern, Spiele verwalten, Ergebnisse eintragen.</p>
+        <p class="admin-subtitle">Teilnehmer freischalten, Namen ändern, Spieler entfernen, Spiele verwalten, Ergebnisse eintragen.</p>
     </div>
 </section>
 
@@ -60,14 +60,26 @@
 
                     <div class="admin-user-actions">
                         {% if not user.is_approved %}
-                            <a class="btn btn-primary" href="{{ url_for('approve_user', user_id=user.id) }}">Freischalten</a>
+                            <a class="btn btn-primary"
+                               href="{{ url_for('approve_user', user_id=user.id) }}"
+                               onclick="return confirm('Spieler wirklich freischalten?');">Freischalten</a>
                         {% else %}
-                            <a class="btn btn-ghost" href="{{ url_for('revoke_user', user_id=user.id) }}">Auf Besucher setzen</a>
+                            <a class="btn btn-ghost"
+                               href="{{ url_for('revoke_user', user_id=user.id) }}"
+                               onclick="return confirm('Spieler wirklich zurück in den Besucher-Modus setzen?');">Auf Besucher setzen</a>
                         {% endif %}
 
-                        <a class="btn btn-gold" href="{{ url_for('toggle_paid', user_id=user.id) }}">
+                        <a class="btn btn-gold"
+                           href="{{ url_for('toggle_paid', user_id=user.id) }}"
+                           onclick="return confirm('Bezahlstatus wirklich ändern?');">
                             {% if user.paid %}Bezahlt zurücksetzen{% else %}Als bezahlt markieren{% endif %}
                         </a>
+
+                        <form method="post"
+                              action="{{ url_for('delete_user', user_id=user.id) }}"
+                              onsubmit="return confirm('Spieler wirklich löschen? Alle Tipps dieses Spielers werden ebenfalls entfernt.');">
+                            <button class="btn btn-danger" type="submit">Spieler löschen</button>
+                        </form>
                     </div>
                 </article>
             {% endfor %}
@@ -154,6 +166,17 @@
                         </div>
                     </div>
 
+                    <form method="post" action="{{ url_for('edit_match', match_id=match.id) }}" class="stack-form">
+                        <div class="admin-edit-grid">
+                            <input type="text" name="home_team" value="{{ match.home_team }}" required>
+                            <input type="text" name="away_team" value="{{ match.away_team }}" required>
+                            <input type="datetime-local" name="kickoff" value="{{ format_kickoff_input(match.kickoff) }}" required>
+                            <input type="text" name="stage" value="{{ match.stage }}" placeholder="z. B. Gruppenphase">
+                            <input type="text" name="group_name" value="{{ match.group_name or '' }}" placeholder="z. B. A">
+                        </div>
+                        <button class="btn btn-primary" type="submit">Spiel aktualisieren</button>
+                    </form>
+
                     <form method="post" action="{{ url_for('save_result', match_id=match.id) }}" class="result-form">
                         <input type="number" min="0" name="result_home" placeholder="0"
                                value="{{ match.result_home if match.result_home is not none else '' }}" required>
@@ -161,6 +184,12 @@
                         <input type="number" min="0" name="result_away" placeholder="0"
                                value="{{ match.result_away if match.result_away is not none else '' }}" required>
                         <button class="btn btn-admin" type="submit">Ergebnis speichern</button>
+                    </form>
+
+                    <form method="post"
+                          action="{{ url_for('delete_match', match_id=match.id) }}"
+                          onsubmit="return confirm('Spiel wirklich löschen? Alle Tipps zu diesem Spiel werden ebenfalls entfernt.');">
+                        <button class="btn btn-danger" type="submit">Spiel löschen</button>
                     </form>
                 </article>
             {% endfor %}

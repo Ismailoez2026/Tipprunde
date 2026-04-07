@@ -25,7 +25,7 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 
-ADMIN_CODE = os.getenv("ADMIN_CODE", "admin123")
+ADMIN_CODE = os.getenv("ADMIN_CODE", "AaTipprunde221021!?")
 APP_TIMEZONE = ZoneInfo("Europe/Berlin")
 
 
@@ -291,10 +291,7 @@ def visible_predictions(match: Match):
         )
 
     current_user = get_current_user()
-    if not current_user:
-        return []
-
-    if not current_user.is_approved:
+    if not current_user or not current_user.is_approved:
         return []
 
     return Prediction.query.filter_by(match_id=match.id, user_id=current_user.id).all()
@@ -432,8 +429,8 @@ def login():
             return redirect(url_for("login"))
 
         if mode == "register":
-            if len(password) < 4:
-                flash("Das Passwort muss mindestens 4 Zeichen lang sein.")
+            if len(password) < 6:
+                flash("Das Passwort muss mindestens 6 Zeichen lang sein.")
                 return redirect(url_for("login"))
 
             if password != password_confirm:
@@ -578,6 +575,24 @@ def admin_login():
 
     return render_template("admin_login.html", current_user=get_current_user())
 
+
+@app.route("/admin")
+def admin():
+    if not is_admin():
+        return redirect(url_for("admin_login"))
+
+    users = User.query.order_by(User.created_at.desc(), User.name.asc()).all()
+    matches = Match.query.order_by(Match.kickoff.asc()).all()
+
+    return render_template(
+        "admin.html",
+        matches=matches,
+        settings=get_or_create_settings(),
+        current_user=get_current_user(),
+        users=users
+    )
+
+
 @app.route("/admin/change-name/<int:user_id>", methods=["POST"])
 def admin_change_name(user_id):
     if not is_admin():
@@ -611,20 +626,25 @@ def admin_change_name(user_id):
     return redirect(url_for("admin"))
 
 
-@app.route("/admin")
-def admin():
+@app.route("/admin/delete-user/<int:user_id>", methods=["POST"])
+def delete_user(user_id):
     if not is_admin():
         return redirect(url_for("admin_login"))
 
-    users = User.query.order_by(User.created_at.desc(), User.name.asc()).all()
+    user = db.session.get(User, user_id)
+    if not user:
+        flash("User nicht gefunden.")
+        return redirect(url_for("admin"))
 
-    return render_template(
-        "admin.html",
-        matches=Match.query.order_by(Match.kickoff.asc()).all(),
-        settings=get_or_create_settings(),
-        current_user=get_current_user(),
-        users=users
-    )
+    user_name = user.name
+
+    Prediction.query.filter_by(user_id=user.id).delete()
+    BonusPrediction.query.filter_by(user_id=user.id).delete()
+    db.session.delete(user)
+    db.session.commit()
+
+    flash(f"Spieler entfernt: {user_name}")
+    return redirect(url_for("admin"))
 
 
 @app.route("/admin/approve-user/<int:user_id>")
@@ -726,6 +746,63 @@ def add_match():
     ))
     db.session.commit()
     flash("Spiel hinzugefügt.")
+    return redirect(url_for("admin"))
+
+
+@app.route("/admin/edit-match/<int:match_id>", methods=["POST"])
+def edit_match(match_id):
+    if not is_admin():
+        return redirect(url_for("admin_login"))
+
+    match = db.session.get(Match, match_id)
+    if not match:
+        flash("Spiel nicht gefunden.")
+        return redirect(url_for("admin"))
+
+    home_team = request.form.get("home_team", "").strip()
+    away_team = request.form.get("away_team", "").strip()
+    kickoff_str = request.form.get("kickoff", "").strip()
+    stage = request.form.get("stage", "Gruppenphase").strip() or "Gruppenphase"
+    group_name = request.form.get("group_name", "").strip() or None
+
+    if not home_team or not away_team or not kickoff_str:
+        flash("Bitte alle Felder für das Spiel ausfüllen.")
+        return redirect(url_for("admin"))
+
+    try:
+        kickoff = datetime.strptime(kickoff_str, "%Y-%m-%dT%H:%M").replace(tzinfo=APP_TIMEZONE)
+    except ValueError:
+        flash("Ungültiges Datum/Zeit-Format.")
+        return redirect(url_for("admin"))
+
+    match.home_team = home_team
+    match.away_team = away_team
+    match.kickoff = kickoff
+    match.stage = stage
+    match.group_name = group_name
+    db.session.commit()
+
+    flash(f"Spiel aktualisiert: {match.home_team} - {match.away_team}")
+    return redirect(url_for("admin"))
+
+
+@app.route("/admin/delete-match/<int:match_id>", methods=["POST"])
+def delete_match(match_id):
+    if not is_admin():
+        return redirect(url_for("admin_login"))
+
+    match = db.session.get(Match, match_id)
+    if not match:
+        flash("Spiel nicht gefunden.")
+        return redirect(url_for("admin"))
+
+    match_label = f"{match.home_team} - {match.away_team}"
+
+    Prediction.query.filter_by(match_id=match.id).delete()
+    db.session.delete(match)
+    db.session.commit()
+
+    flash(f"Spiel gelöscht: {match_label}")
     return redirect(url_for("admin"))
 
 
