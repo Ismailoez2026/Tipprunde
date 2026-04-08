@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Freischaltung ausstehend · Tipprunde 2026{% endblock %}
+
+{% block content %}
+<section class="auth-wrap">
+    <div class="auth-card">
+        <div class="hero-badge">⏳ Freischaltung ausstehend</div>
+        <h1 class="admin-title">Hallo {{ current_user.name }}</h1>
+        <p class="auth-text">
+            Dein Account wurde erstellt, ist aber noch nicht freigeschaltet.
+            Erst nach der Freischaltung durch den Admin kannst du die Tipprunde vollständig sehen und benutzen.
+        </p>
+
+        <div class="card" style="margin-top: 18px;">
+            <div class="section-head">
+                <h2>Status</h2>
+                <span class="section-badge">Wartend</span>
+            </div>
+
+            <p class="auth-text">
+                Sobald du freigeschaltet bist, siehst du:
+            </p>
+
+            <div class="rules-box">
+                <p>• alle Spiele</p>
+                <p>• deine Tipps</p>
+                <p>• die Rangliste</p>
+                <p>• den Weltmeistertipp</p>
+            </div>
+
+            <div style="margin-top: 18px;">
+                <a class="btn btn-ghost" href="{{ url_for('logout') }}">Abmelden</a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
