@@ -11,33 +11,33 @@
 
     <header class="site-header">
         <div class="container nav">
-            <a href="{{ url_for('index') }}" class="brand">
-                <span class="brand-icon">⚽</span>
-                <span>
-                    <strong>Tipprunde 2026</strong>
-                    <small>Road to the Final</small>
-                </span>
+    
+            <a class="brand" href="{{ url_for('index') }}">
+                <div class="brand-icon">⚽</div>
+                <div>
+                    <strong>Tipprunde</strong>
+                    <small>WM 2026</small>
+                </div>
             </a>
-
-            <nav class="nav-actions">
+    
+            <div class="nav-actions">
                 {% if current_user %}
-                    <span class="nav-chip">👤 {{ current_user.name }}</span>
+                    <span class="nav-chip chip-green">
+                        👤 {{ current_user.name }}
+                    </span>
+    
                     {% if current_user.is_approved %}
                         <span class="nav-chip chip-green">Freigeschaltet</span>
                     {% else %}
-                        <span class="nav-chip chip-yellow">Besucher-Modus</span>
+                        <span class="nav-chip chip-yellow">Wartet</span>
                     {% endif %}
+    
                     <a class="btn btn-ghost" href="{{ url_for('logout') }}">Logout</a>
                 {% else %}
-                    <a class="btn btn-ghost" href="{{ url_for('login') }}">Login</a>
+                    <a class="btn btn-primary" href="{{ url_for('login') }}">Login</a>
                 {% endif %}
-
-                {% if session.get('is_admin') %}
-                    <a class="btn btn-admin" href="{{ url_for('admin') }}">Admin</a>
-                {% else %}
-                    <a class="btn btn-ghost" href="{{ url_for('admin_login') }}">Admin</a>
-                {% endif %}
-            </nav>
+            </div>
+    
         </div>
     </header>
 
