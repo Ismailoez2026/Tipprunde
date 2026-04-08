@@ -375,12 +375,16 @@ def ranking():
 @app.route("/")
 def index():
     current_user = get_current_user()
-    matches = Match.query.order_by(Match.kickoff.asc()).all()
-    user_predictions = {}
 
-    if current_user and current_user.is_approved:
-        preds = Prediction.query.filter_by(user_id=current_user.id).all()
-        user_predictions = {p.match_id: p for p in preds}
+    if not current_user:
+        return redirect(url_for("login"))
+
+    if not current_user.is_approved:
+        return render_template("pending.html", current_user=current_user)
+
+    matches = Match.query.order_by(Match.kickoff.asc()).all()
+    preds = Prediction.query.filter_by(user_id=current_user.id).all()
+    user_predictions = {p.match_id: p for p in preds}
 
     rows = [{
         "match": match,
@@ -388,9 +392,7 @@ def index():
         "open": match_is_open(match),
     } for match in matches]
 
-    bonus_prediction = None
-    if current_user and current_user.is_approved:
-        bonus_prediction = BonusPrediction.query.filter_by(user_id=current_user.id).first()
+    bonus_prediction = BonusPrediction.query.filter_by(user_id=current_user.id).first()
 
     settings = get_or_create_settings()
     ranking_rows = ranking()
@@ -415,9 +417,12 @@ def index():
         top_three=top_three,
     )
 
-
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    current_user = get_current_user()
+    if current_user:
+        return redirect(url_for("index"))
+
     if request.method == "POST":
         mode = request.form.get("mode", "login")
         name = request.form.get("name", "").strip()
@@ -452,7 +457,7 @@ def login():
             db.session.commit()
 
             session["user_id"] = user.id
-            flash("Registrierung erfolgreich. Dein Zugang wartet auf Freischaltung.")
+            flash("Registrierung erfolgreich. Dein Zugang wartet jetzt auf Freischaltung.")
             return redirect(url_for("index"))
 
         user = User.query.filter_by(name=name).first()
@@ -469,12 +474,11 @@ def login():
         if user.is_approved:
             flash(f"Angemeldet als {user.name}.")
         else:
-            flash(f"Angemeldet als {user.name}. Besucher-Modus aktiv, bis du freigeschaltet wirst.")
+            flash(f"Angemeldet als {user.name}. Dein Zugang wartet noch auf Freischaltung.")
 
         return redirect(url_for("index"))
 
-    return render_template("login.html", current_user=get_current_user())
-
+    return render_template("login.html", current_user=None)
 
 @app.route("/logout")
 def logout():
